@@ -1,0 +1,360 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIM-PAT | Peminjaman Alat Bengkel TI</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+header {
+  background: #1e3a8a;
+  color: white;
+  padding: 22px;
+}
+
+header h2 { margin: 0 0 6px; }
+
+main {
+  max-width: 1100px;
+  margin: auto;
+  padding: 20px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.card, section {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 18px;
+}
+
+.card h3 { margin: 0; color: #64748b; }
+.card p { font-size: 28px; font-weight: bold; margin: 12px 0 0; }
+
+input, select, button {
+  padding: 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  width: 100%;
+  margin: 6px 0 12px;
+}
+
+button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover { background: #1d4ed8; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+th { background: #eff6ff; }
+
+.status {
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.available { background: #dcfce7; color: #166534; }
+.borrowed { background: #dbeafe; color: #1e40af; }
+.late { background: #fee2e2; color: #991b1b; }
+
+.return-btn {
+  background: #16a34a;
+  padding: 7px;
+  margin: 0;
+}
+
+@media(max-width:650px) {
+  .cards { grid-template-columns: 1fr; }
+  section { overflow-x: auto; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>SIM-PAT</h2>
+  <p>Sistem Informasi Peminjaman Alat Bengkel TI</p>
+</header>
+
+<main>
+
+  <div class="cards">
+    <div class="card">
+      <h3>Total Jenis Alat</h3>
+      <p id="totalAlat">0</p>
+    </div>
+    <div class="card">
+      <h3>Alat Tersedia</h3>
+      <p id="tersedia">0</p>
+    </div>
+    <div class="card">
+      <h3>Sedang Dipinjam</h3>
+      <p id="dipinjam">0</p>
+    </div>
+  </div>
+
+  <section>
+    <h3>Form Peminjaman Alat</h3>
+
+    <form id="formPinjam">
+      <label>Nama Peminjam</label>
+      <input id="nama" required placeholder="Masukkan nama peminjam">
+
+      <label>Pilih Alat</label>
+      <select id="alat" required></select>
+
+      <label>Jumlah Pinjam</label>
+      <input id="jumlah" type="number" min="1" value="1" required>
+
+      <label>Tanggal Pinjam</label>
+      <input id="tanggalPinjam" type="date" required>
+
+      <label>Batas Pengembalian</label>
+      <input id="tanggalKembali" type="date" required>
+
+      <button type="submit">Simpan Peminjaman</button>
+    </form>
+  </section>
+
+  <section>
+    <h3>Daftar Alat Bengkel</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Nama Alat</th>
+          <th>Stok Total</th>
+          <th>Stok Tersedia</th>
+        </tr>
+      </thead>
+      <tbody id="daftarAlat"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h3>Riwayat Peminjaman</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Peminjam</th>
+          <th>Alat</th>
+          <th>Jumlah</th>
+          <th>Batas Kembali</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="riwayat"></tbody>
+    </table>
+  </section>
+
+</main>
+
+<script>
+const dataAwal = [
+  {id: "ALT001", nama: "Laptop", stok: 10},
+  {id: "ALT002", nama: "Mouse", stok: 20},
+  {id: "ALT003", nama: "Keyboard", stok: 15},
+  {id: "ALT004", nama: "Proyektor", stok: 3},
+  {id: "ALT005", nama: "Kabel LAN", stok: 25}
+];
+
+let alat = JSON.parse(localStorage.getItem("alat")) || dataAwal;
+let pinjaman = JSON.parse(localStorage.getItem("pinjaman")) || [];
+
+function simpanData() {
+  localStorage.setItem("alat", JSON.stringify(alat));
+  localStorage.setItem("pinjaman", JSON.stringify(pinjaman));
+}
+
+function stokTersedia(id) {
+  const item = alat.find(a => a.id === id);
+  const sedangDipinjam = pinjaman
+    .filter(p => p.alatId === id && p.status === "Dipinjam")
+    .reduce((total, p) => total + p.jumlah, 0);
+
+  return item.stok - sedangDipinjam;
+}
+
+function render() {
+  document.getElementById("totalAlat").textContent = alat.length;
+
+  const totalStok = alat.reduce((t, a) => t + a.stok, 0);
+  const totalTersedia = alat.reduce(
+    (t, a) => t + stokTersedia(a.id), 0
+  );
+
+  const totalDipinjam = totalStok - totalTersedia;
+
+  document.getElementById("tersedia").textContent = totalTersedia;
+  document.getElementById("dipinjam").textContent = totalDipinjam;
+
+  document.getElementById("daftarAlat").innerHTML =
+    alat.map(a => `
+      <tr>
+        <td>${a.id}</td>
+        <td>${a.nama}</td>
+        <td>${a.stok}</td>
+        <td>${stokTersedia(a.id)}</td>
+      </tr>
+    `).join("");
+
+  document.getElementById("alat").innerHTML =
+    alat.map(a => `
+      <option value="${a.id}">
+        ${a.nama} (Tersedia: ${stokTersedia(a.id)})
+      </option>
+    `).join("");
+
+  document.getElementById("riwayat").innerHTML =
+    pinjaman.map((p, index) => {
+      const terlambat =
+        p.status === "Dipinjam" &&
+        p.tanggalKembali < tanggalHariIni();
+
+      const status = p.status === "Kembali"
+        ? "Kembali"
+        : terlambat ? "Terlambat" : "Dipinjam";
+
+      return `
+        <tr>
+          <td>${p.nama}</td>
+          <td>${p.namaAlat}</td>
+          <td>${p.jumlah}</td>
+          <td>${p.tanggalKembali}</td>
+          <td>
+            <span class="status ${
+              status === "Kembali" ? "available" :
+              terlambat ? "late" : "borrowed"
+            }">${status}</span>
+          </td>
+          <td>
+            ${p.status === "Dipinjam" ? `
+              <button class="return-btn"
+                onclick="kembalikan(${index})">
+                Kembalikan
+              </button>
+            ` : "-"}
+          </td>
+        </tr>
+      `;
+    }).join("");
+}
+
+function tanggalHariIni() {
+  const d = new Date();
+  const lokal = new Date(
+    d.getTime() - d.getTimezoneOffset() * 60000
+  );
+  return lokal.toISOString().split("T")[0];
+}
+
+document.getElementById("tanggalPinjam").value =
+  tanggalHariIni();
+
+document.getElementById("tanggalPinjam").min =
+  tanggalHariIni();
+
+document.getElementById("tanggalKembali").min =
+  tanggalHariIni();
+
+document.getElementById("formPinjam")
+.addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  const id = document.getElementById("alat").value;
+  const item = alat.find(a => a.id === id);
+  const nama = document.getElementById("nama").value.trim();
+  const jumlah = Number(document.getElementById("jumlah").value);
+  const tanggalPinjam =
+    document.getElementById("tanggalPinjam").value;
+  const tanggalKembali =
+    document.getElementById("tanggalKembali").value;
+
+  if (!item || !nama || !Number.isInteger(jumlah) || jumlah < 1) {
+    alert("Data peminjaman tidak valid!");
+    return;
+  }
+
+  if (tanggalPinjam < tanggalHariIni() ||
+      tanggalKembali < tanggalPinjam) {
+    alert("Periksa kembali tanggal peminjaman!");
+    return;
+  }
+
+  if (jumlah > stokTersedia(id)) {
+    alert("Stok alat tidak mencukupi!");
+    return;
+  }
+
+  pinjaman.push({
+    id: Date.now(),
+    nama,
+    alatId: id,
+    namaAlat: item.nama,
+    jumlah,
+    tanggalPinjam,
+    tanggalKembali,
+    status: "Dipinjam"
+  });
+
+  simpanData();
+  render();
+  this.reset();
+  document.getElementById("tanggalPinjam").value =
+    tanggalHariIni();
+
+  alert("Peminjaman berhasil disimpan!");
+});
+
+function kembalikan(index) {
+  if (confirm("Proses pengembalian alat ini?")) {
+    pinjaman[index].status = "Kembali";
+    pinjaman[index].tanggalAktualKembali = tanggalHariIni();
+    simpanData();
+    render();
+    alert("Alat berhasil dikembalikan!");
+  }
+}
+
+render();
+</script>
+
+</body>
+</html>
